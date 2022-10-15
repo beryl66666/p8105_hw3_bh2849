@@ -1,0 +1,159 @@
+---
+title: "p8105_hw3_bh2849"
+author: "Binyue Hu"
+date: "2022-10-13"
+output: github_document
+---
+
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggridges)
+library(patchwork)
+
+library(p8105.datasets)
+
+knitr::opts_chunk$set(
+	echo = TRUE,
+	warning = FALSE,
+	fig.width = 8, 
+  fig.height = 6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+
+### Problem 1
+
+#### Read in the data
+
+```{r}
+data("instacart")
+
+instacart = 
+  instacart %>% 
+  as_tibble(instacart)
+```
+
+#### Answer questions about the data
+
+This dataset contains `r nrow(instacart)` rows and `r ncol(instacart)` columns, with each row resprenting a single product from an instacart order. Variables include identifiers for user, order, and product; the order in which each product was added to the cart. There are several order-level variables, describing the day and time of the order, and number of days since prior order. Then there are several item-specific variables, describing the product name (e.g. Yogurt, Avocado), department (e.g. dairy and eggs, produce), and aisle (e.g. yogurt, fresh fruits), and whether the item has been ordered by this user in the past. In total, there are `r instacart %>% select(product_id) %>% distinct %>% count` products found in `r instacart %>% select(user_id, order_id) %>% distinct %>% count` orders from `r instacart %>% select(user_id) %>% distinct %>% count` distinct users.
+
+Below is a table summarizing the number of items ordered from aisle. In total, there are 134 aisles, with fresh vegetables and fresh fruits holding the most items ordered by far.
+
+```{r}
+instacart %>% 
+  count(aisle) %>% 
+  arrange(desc(n))
+```
+
+Next is a plot that shows the number of items ordered in each aisle. Here, aisles are ordered by ascending number of items.
+
+```{r}
+instacart %>% 
+  count(aisle) %>% 
+  filter(n > 10000) %>% 
+  mutate(aisle = fct_reorder(aisle, n)) %>% 
+  ggplot(aes(x = aisle, y = n)) + 
+  geom_point() + 
+  labs(title = "Number of items ordered in each aisle") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+```
+
+Our next table shows the three most popular items in aisles `baking ingredients`, `dog food care`, and `packaged vegetables fruits`, and includes the number of times each item is ordered in your table.
+
+```{r}
+instacart %>% 
+  filter(aisle %in% c("baking ingredients", "dog food care", "packaged vegetables fruits")) %>%
+  group_by(aisle) %>% 
+  count(product_name) %>% 
+  mutate(rank = min_rank(desc(n))) %>% 
+  filter(rank < 4) %>% 
+  arrange(desc(n)) %>%
+  knitr::kable()
+```
+
+Finally is a table showing the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week. This table has been formatted in an untidy manner for human readers. Pink Lady Apples are generally purchased slightly earlier in the day than Coffee Ice Cream, with the exception of day 5.
+
+```{r}
+instacart %>%
+  filter(product_name %in% c("Pink Lady Apples", "Coffee Ice Cream")) %>%
+  group_by(product_name, order_dow) %>%
+  summarize(mean_hour = mean(order_hour_of_day)) %>%
+  spread(key = order_dow, value = mean_hour) %>%
+  knitr::kable(digits = 2)
+```
+
+## Problem 2
+
+#### Load, tidy and describe the data
+
+```{r}
+accel_data = read_csv("./data/accel_data.csv") %>%
+  janitor::clean_names() %>%
+  pivot_longer(activity_1:activity_1440,
+               names_prefix = "activity_",
+               names_to = "minute",
+               values_to = "activity_counts") %>%
+  mutate(minute = as.numeric(minute),
+         day_type = case_when(day %in% c("Saturday","Sunday") ~ "Weekend",
+                                TRUE ~ "Weekday"))
+accel_data
+```
+
+In the tidied dataset, there are `r nrow(accel_data)` observations, and each row represents a single minute of accelerometer data for a 63 year-old male over the course of five weeks.
+
+There are `r ncol(accel_data)` variables in this dataset include `r colnames(accel_data)`. 
+
+#### Traditional Analysis of the Data
+
+```{r}
+Tradi_analysis = accel_data %>%
+  group_by(week,day) %>%
+  dplyr::summarise(total_activity = sum(activity_counts)) %>%
+  pivot_wider(names_from = day,
+              values_from = total_activity) %>%
+  select("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday") %>%
+  knitr::kable(digits = 1)
+
+Tradi_analysis
+```
+
+There are not obvious trends in the table, because numbers are erratically distributed in the table and fluctuate between large and small.
+
+#### Single-Panel Plot 
+
+```{r}
+accel_data %>%
+  ggplot(aes(x = minute/60, y = activity_counts, color = day)) + 
+  geom_point(alpha = .5) +
+  geom_smooth(se = F, size = 0.8, alpha = 0.8) +
+  labs(title = "24-Hour Activity Time Courses for Each Day",
+       x = "Hour (h)",
+       y = "Activity Measured by Accelerometer (n)") +
+  scale_x_continuous(
+    breaks = c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24)) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+
+The plot shows that the person's activity level increases from midnight to about 10am everyday.
+After 10am, the activity level declines and goes flat until 7pm. 
+The person's activity level mostly peaks at 9pm, and it gradually decreases to 0 in the midnight.
+
+## Problem 2
+
+
+
